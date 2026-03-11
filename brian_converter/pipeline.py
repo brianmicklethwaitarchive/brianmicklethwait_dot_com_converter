@@ -56,6 +56,39 @@ ATTR_RE = re.compile(
 )
 CSS_URL_RE = re.compile(r"""url\((?P<quote>['"]?)(?P<value>.*?)(?P=quote)\)""", re.IGNORECASE)
 ANCHOR_NAME_RE = re.compile(r"""<a\s+name=(['"]?)(?P<name>[A-Za-z0-9_]+)\1""", re.IGNORECASE)
+MOJIBAKE_RE = re.compile(r"""(?:[ÂÃâ][\u0080-\u00FF]{1,3})+""")
+
+CP1252_CONTROL_MAP = str.maketrans(
+    {
+        "\x80": "\u20ac",
+        "\x82": "\u201a",
+        "\x83": "\u0192",
+        "\x84": "\u201e",
+        "\x85": "\u2026",
+        "\x86": "\u2020",
+        "\x87": "\u2021",
+        "\x88": "\u02c6",
+        "\x89": "\u2030",
+        "\x8a": "\u0160",
+        "\x8b": "\u2039",
+        "\x8c": "\u0152",
+        "\x8e": "\u017d",
+        "\x91": "\u2018",
+        "\x92": "\u2019",
+        "\x93": "\u201c",
+        "\x94": "\u201d",
+        "\x95": "\u2022",
+        "\x96": "\u2013",
+        "\x97": "\u2014",
+        "\x98": "\u02dc",
+        "\x99": "\u2122",
+        "\x9a": "\u0161",
+        "\x9b": "\u203a",
+        "\x9c": "\u0153",
+        "\x9e": "\u017e",
+        "\x9f": "\u0178",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -283,6 +316,24 @@ def _write_text(path: Path, text: str) -> None:
     path.write_text(text, encoding="utf-8")
 
 
+def _repair_mojibake_segment(segment: str) -> str:
+    try:
+        repaired = segment.encode("latin-1").decode("utf-8")
+    except UnicodeDecodeError:
+        return segment
+    return repaired
+
+
+def _normalize_text(text: str) -> str:
+    normalized = text
+    for _ in range(2):
+        updated = MOJIBAKE_RE.sub(lambda match: _repair_mojibake_segment(match.group(0)), normalized)
+        if updated == normalized:
+            break
+        normalized = updated
+    return normalized.translate(CP1252_CONTROL_MAP)
+
+
 def _build_anchor_index(records: Iterable[PageRecord]) -> dict[str, PageRecord]:
     index: dict[str, PageRecord] = {}
     for record in records:
@@ -338,6 +389,7 @@ def _rewrite_page(
     stats: ConversionStats,
 ) -> str:
     text = record.source_html if record.source_html is not None else record.source_file.read_text(encoding="latin-1")
+    text = _normalize_text(text)
     current_source_url = record.source_url or f"http://www.brianmicklethwait.com/{record.source_file.relative_to(SOURCE_ROOT).as_posix()}"
 
     text = SCRIPT_RE.sub("", text)
