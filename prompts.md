@@ -1,6 +1,6 @@
 A record of the prompts used to make this tool.
 
-# Initial prompt
+# Step 1: Initial prompt
 
 The directory brianmicklethwaitarchive-jekyll is a static web site where I archive Brian's writings.
 
@@ -95,3 +95,30 @@ Rewrite rules to implement in the shared pipeline:
 - Generated blog HTML/assets will be committed in `brianmicklethwaitarchive-jekyll`, while the converter code lives separately in `brianmicklethwait_dot_com_converter`.
 - Jekyll is only the packaging/deploy container for these generated files; the blog pages themselves stay hand-generated static HTML using their original styling rather than being re-authored as Jekyll posts.
 
+# Step 2: synthesising archive pages
+
+My prompt:
+
+Most of the results are good; however the culture blog front page has no articles.
+
+I think it is because articles became more rare towards the period Brian was writing for this blog.
+
+Furthermore, the "archives" sections of the main page is empty, probably because this was a dynamic element and we are now making a static site.
+
+I would like to do two things for pages of this type:
+1) synthesise the archives section if needed so that we have links to pages in the monthly archive sections with articles for that month
+2) at the bottom of each page, a "more" link that continues to the next page in the blog.
+
+It would be ok for these pages to just have links with date and title of each article, but the more it is practical to add the better.
+
+# AI's final response to page synthesis request (after thinking and testing)
+
+Updated the MT conversion path so culture and education now synthesize real listing pages instead of preserving the old empty dynamic shells. The main logic is in mt_adapter.py with pipeline support in pipeline.py.
+
+That now gives you:
+
+- populated front pages like culture/index.html and education/index.html
+- synthetic monthly archive index pages such as culture/archives/2005/10/index.html
+- filled-in Archives sidebars with month links and post counts
+- a More link at the bottom of these synthesized listing pages to continue into older months
+I rebuilt culture and education, both audits are clean, and bundle exec jekyll build succeeds. One residual thing I noticed is that a few source titles still have old encoding mojibake in the underlying mirror, so if you want, the next pass could be about normalizing those titles and excerpts.

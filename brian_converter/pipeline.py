@@ -64,6 +64,8 @@ class PageRecord:
     source_file: Path
     output_rel: str
     old_paths: tuple[str, ...]
+    source_html: str | None = None
+    source_url: str | None = None
 
     @property
     def output_file(self) -> Path:
@@ -110,7 +112,17 @@ def _load_records() -> list[PageRecord]:
             jobs = mt_adapter.collect_pages(spec)
         else:
             jobs = ee_adapter.collect_pages(spec)
-        records.extend(PageRecord(spec, job.source_file, job.output_rel, job.old_paths) for job in jobs)
+        records.extend(
+            PageRecord(
+                spec,
+                job.source_file,
+                job.output_rel,
+                job.old_paths,
+                getattr(job, "source_html", None),
+                getattr(job, "source_url", None),
+            )
+            for job in jobs
+        )
     return records
 
 
@@ -325,10 +337,8 @@ def _rewrite_page(
     asset_sources: set[Path],
     stats: ConversionStats,
 ) -> str:
-    text = record.source_file.read_text(encoding="latin-1")
-    current_source_url = (
-        f"http://www.brianmicklethwait.com/{record.source_file.relative_to(SOURCE_ROOT).as_posix()}"
-    )
+    text = record.source_html if record.source_html is not None else record.source_file.read_text(encoding="latin-1")
+    current_source_url = record.source_url or f"http://www.brianmicklethwait.com/{record.source_file.relative_to(SOURCE_ROOT).as_posix()}"
 
     text = SCRIPT_RE.sub("", text)
     text = FORM_RE.sub("", text)
