@@ -111,7 +111,7 @@ I would like to do two things for pages of this type:
 
 It would be ok for these pages to just have links with date and title of each article, but the more it is practical to add the better.
 
-# AI's final response to page synthesis request (after thinking and testing)
+## AI's final response to page synthesis request (after thinking and testing)
 
 Updated the MT conversion path so culture and education now synthesize real listing pages instead of preserving the old empty dynamic shells. The main logic is in mt_adapter.py with pipeline support in pipeline.py.
 
@@ -129,7 +129,7 @@ The structure looks good. Would it be feasible to render out the whole post for 
 
 That's how it would have looked on the original blog. No comments, of course, they only appear on the individual post pages.
 
-# AI response to whole post request
+## AI response to whole post request
 
 The rendered output now matches the original MT feel much more closely: dates, full post body, posted/category block, and no comments. I’m running one last Jekyll build so this ends with the site in a verified-good state.
 
@@ -146,3 +146,40 @@ bundle exec jekyll build
 ```
 
 The one extra thing I had to do was rebase embedded post-relative links and images before rewriting, so lifted posts on archive pages still point to the right assets and individual entry pages.
+
+# Fixing the culture sidebar
+
+education looks good, but culture seems to have lost both its sidebar and the "more from" links at the bottom of each apge.
+
+## AI response to sidebar fix request
+
+I’m checking the generated culture pages directly now. This sounds like the fuller post-body extraction may be swallowing the wrapper structure on that template, so I want to verify exactly where the sidebar and “More from” block disappear before patching it.
+
+I found the failure mode: a few culture posts have malformed HTML, so my regex-based body extraction is overreaching and eating into later content. I’m inspecting one of the broken source posts directly and then I’ll switch the extraction to a safer boundary rule.
+
+I’m doing one quick diagnostic over the culture entries to find which extracted bodies are leaking past their own post boundary. Once we know the exact pattern, I can tighten the extractor without guesswork.
+
+I’ve narrowed it further: the generated file literally has no <div id="links">, so this isn’t just a browser-layout quirk. I’m checking the synthetic HTML before the pipeline runs, because the problem is now clearly in the MT page assembly step rather than the later link rewriting.
+
+The corruption is definitely happening inside _rewrite_page. I’m stepping through those cleanup regexes in order so I can replace the one that’s eating the rest of the page instead of patching around the symptom.
+
+I found the bug: the image-unwrapping regex was too permissive and, on culture’s messier HTML, it could latch onto an <a> much earlier in the page and not stop until an image near the footer. I’m tightening that matcher now and then I’ll regenerate culture.
+
+I’m rebuilding just the affected MT output first and checking the exact two symptoms you flagged: the sidebar and the “More from” links. If that looks right, I’ll rerun the normal audit/build verification.
+
+The culture pages now have both the sidebar and the “More from …” navigation back in the generated HTML. I’m running the normal audit and site build one last time so we finish with a verified clean state.
+
+Fixed. The problem was the popup-image unwrapping regex in pipeline.py: it was too loose and, on culture’s messier HTML, could match from an earlier <a> all the way into the footer, which wiped out the sidebar and the synthetic More from ... block.
+
+I tightened that matcher, rebuilt culture, and verified that both are back:
+
+- culture/index.html
+- culture/archives/2005/01/index.html
+
+Checks passed:
+
+```
+uv run ./audit_blog culture
+bundle exec jekyll build
+```
+

@@ -43,8 +43,8 @@ UNWANTED_ANCHOR_RE = re.compile(
     re.IGNORECASE | re.DOTALL,
 )
 ANCHOR_IMG_RE = re.compile(
-    r"""<a\b(?P<attrs>[^>]*?)href=(?P<quote>['"])(?P<href>.*?)(?P=quote)(?P<tail>[^>]*)>\s*(?P<img><img\b.*?>)\s*</a>""",
-    re.IGNORECASE | re.DOTALL,
+    r"""<a\b(?P<attrs>[^>]*?)href=(?P<quote>['"])(?P<href>[^'"]*)(?P=quote)(?P<tail>[^>]*)>\s*(?P<img><img\b[^>]*>)\s*</a>""",
+    re.IGNORECASE,
 )
 BROKEN_HREF_IMG_RE = re.compile(
     r"""<href=(?P<quote>['"]).*?(?P=quote)>\s*(?P<img><img\b.*?>)\s*</a>""",
