@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from html import escape, unescape
 from pathlib import Path
+from urllib.parse import urljoin
 
 from brian_converter.specs import BlogSpec, SOURCE_ROOT
 
@@ -21,6 +22,14 @@ TITLE_RE = re.compile(r"""<div class="title">(?P<title>.*?)</div>""", re.DOTALL)
 POSTED_RE = re.compile(
     r"""Posted by Brian Micklethwait at <a href="[^"]+">(?P<time>\d{1,2}:\d{2} [AP]M)</a>""",
     re.DOTALL,
+)
+LISTING_BODY_RE = re.compile(
+    r"""<div class="blogbody">\s*(?P<body>.*?<div class="posted">.*?</div>)(?=\s*<div class="comments-head">|\s*</div>\s*</div>\s*</div>\s*</div>)""",
+    re.DOTALL,
+)
+ATTR_RE = re.compile(
+    r"""(?P<attr>\b(?:href|src|action)\s*=\s*)(?P<quote>['"])(?P<value>.*?)(?P=quote)""",
+    re.IGNORECASE | re.DOTALL,
 )
 
 
@@ -43,6 +52,7 @@ class ArchiveEntry:
     date_label: str
     month_key: tuple[int, int]
     month_label: str
+    listing_body_html: str
 
     @property
     def primary_old_path(self) -> str:
@@ -65,6 +75,7 @@ def _parse_entry(source_file: Path) -> ArchiveEntry | None:
     date_match = DATE_RE.search(text)
     title_match = TITLE_RE.search(text)
     posted_match = POSTED_RE.search(text)
+    listing_body_match = LISTING_BODY_RE.search(text)
     if date_match is None or title_match is None or posted_match is None:
         return None
 
@@ -77,6 +88,7 @@ def _parse_entry(source_file: Path) -> ArchiveEntry | None:
     rel = source_file.relative_to(source_file.parents[3]).as_posix()
     title_text = re.sub(r"<.*?>", "", title_match.group("title"))
     title = unescape(" ".join(title_text.split()))
+    listing_body_html = listing_body_match.group("body").strip() if listing_body_match is not None else ""
     return ArchiveEntry(
         source_file=source_file,
         output_rel=rel,
@@ -86,7 +98,23 @@ def _parse_entry(source_file: Path) -> ArchiveEntry | None:
         date_label=published_at.strftime("%B %d, %Y"),
         month_key=(published_at.year, published_at.month),
         month_label=published_at.strftime("%B %Y"),
+        listing_body_html=_absolutize_embedded_urls(listing_body_html, source_file),
     )
+
+
+def _absolutize_embedded_urls(html: str, source_file: Path) -> str:
+    current_url = f"http://www.brianmicklethwait.com/{source_file.relative_to(SOURCE_ROOT).as_posix()}"
+
+    def replace_attr(match: re.Match[str]) -> str:
+        value = match.group("value").strip()
+        if not value or value.startswith(("#", "mailto:", "javascript:", "data:", "tel:")):
+            return match.group(0)
+        if value.startswith(("http://", "https://")):
+            return match.group(0)
+        absolute = urljoin(current_url, value)
+        return f"{match.group('attr')}{match.group('quote')}{absolute}{match.group('quote')}"
+
+    return ATTR_RE.sub(replace_attr, html)
 
 
 def _collect_entries(spec: BlogSpec) -> list[ArchiveEntry]:
@@ -138,7 +166,7 @@ def _listing_html(
                 f'<div class="date">{escape(entry.date_label)}</div>',
                 "",
                 '<div class="blogbody">',
-                f'<div class="title"><a href="http://www.brianmicklethwait.com{entry.primary_old_path}">{escape(entry.title)}</a></div>',
+                entry.listing_body_html or f'<div class="title"><a href="http://www.brianmicklethwait.com{entry.primary_old_path}">{escape(entry.title)}</a></div>',
                 "</div>",
                 "",
             ]

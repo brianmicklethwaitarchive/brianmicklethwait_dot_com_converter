@@ -122,3 +122,27 @@ That now gives you:
 - filled-in Archives sidebars with month links and post counts
 - a More link at the bottom of these synthesized listing pages to continue into older months
 I rebuilt culture and education, both audits are clean, and bundle exec jekyll build succeeds. One residual thing I noticed is that a few source titles still have old encoding mojibake in the underlying mirror, so if you want, the next pass could be about normalizing those titles and excerpts.
+
+# My follow-up: asking for whole post instead of just title on archive pages
+
+The structure looks good. Would it be feasible to render out the whole post for each of these archive page entries, instead of just title and link?
+
+That's how it would have looked on the original blog. No comments, of course, they only appear on the individual post pages.
+
+# AI response to whole post request
+
+The rendered output now matches the original MT feel much more closely: dates, full post body, posted/category block, and no comments. I’m running one last Jekyll build so this ends with the site in a verified-good state.
+
+Implemented it. The synthesized MT listing pages now render each post body up through the posted/category block, while still omitting comments and comment forms.
+
+That change is in mt_adapter.py, and the rebuilt output shows the fuller layout on pages like culture/index.html, culture/archives/2005/10/index.html, and education/index.html.
+
+Verification passed:
+
+```
+uv run ./audit_blog culture
+uv run ./audit_blog education
+bundle exec jekyll build
+```
+
+The one extra thing I had to do was rebase embedded post-relative links and images before rewriting, so lifted posts on archive pages still point to the right assets and individual entry pages.
