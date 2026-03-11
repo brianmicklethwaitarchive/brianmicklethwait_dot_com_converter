@@ -1,0 +1,7 @@
+#!/usr/bin/env python3
+
+from brian_converter.cli import main_convert
+
+
+if __name__ == "__main__":
+    raise SystemExit(main_convert())
